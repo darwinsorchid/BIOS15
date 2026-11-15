@@ -145,7 +145,7 @@ Although there is a slight difference between the allometric slope of the two se
 
 
 # Appendix
-The R code used for all analyses and figures in this report is provided below and is also available at .
+The R code used for all analyses and figures in this report is provided below and is also available at <https://github.com/darwinsorchid/BIOS15/tree/main/linear-regression>.
 ```{r ref.label=knitr::all_labels()}
 #| echo: true
 #| eval: false
