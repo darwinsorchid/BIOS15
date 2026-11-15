@@ -1,0 +1,11 @@
+# R
+.Rhistory
+.RData
+.Rproj.user/
+
+# Quarto render output
+.quarto/
+*_files/
+
+# OS clutter
+.DS_Store

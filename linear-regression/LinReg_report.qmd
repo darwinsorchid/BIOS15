@@ -1,0 +1,152 @@
+---
+title: "Male vs Female Brain Allometry in Avian Species"
+format: 
+  pdf:
+    papersize: a4
+    geometry: margin=2.5cm
+execute:
+  echo: false
+  warning: false
+---
+
+# Introduction
+
+Brain size of vertebrate species is thought to be shaped by both natural and sexual selection. The ratio of brain to body size reflects the species' resource allocation strategy to balance metabolic, developmental and reproductive trade-offs that arise as consequences of limited resources and evolutionary necessity. Avian species provide a particularly suitable system for examining these trade-offs, as birds span a wide range of body sizes and show variation in developmental mode, ecology and sexual dimorphism. 
+
+Sexual dimorphism provides further insight into these trade-offs. Males and females often experience different selective pressures, such as intrasexual competition, mate choice and unequal investment in parental care which may favor different investment in neural tissue. However, because body size itself frequently differs between the sexes, sex differences in absolute brain size may arise from allometric scaling alone. A more informative question is therefore whether the allometric relationship between brain and body size differs in males and females.
+
+# Methods
+
+Brain size is expected to scale with body size according to a power-law relationship on the form $brain\_mass = \alpha \times body\_mass^b$. The expected power relationship was linearized through the logarithmic transformation $log(brain\_mass) = log(\alpha) + b \times log(body\_mass)$ and then a linear regression model was fitted to the data. To assess whether the allometric slope $(b)$ differs between the sexes, data for males and females was analyzed separately. As the aim of this study was to compare brain-body allometry between the sexes, individuals for which sex was not recorded were excluded from all subsequent analyses. 
+
+```{r}
+#| label: setup
+
+# Import packages
+library(ggplot2)
+library(broom)
+
+# Load data
+birds = read.csv("bird_allometry.csv")
+
+```
+
+
+```{r}
+#| label: fit-models
+
+# Split data into males and females
+females <- birds[birds$Sex == "f", ]
+males   <- birds[birds$Sex == "m", ]
+
+# Separate fits per sex (descriptive)
+mf <- lm(log(brain_mass) ~ log(body_mass), data = females)
+mm <- lm(log(brain_mass) ~ log(body_mass), data = males)
+
+# Exclude records with "unknown" sex
+birds_filtered <- birds[birds$Sex %in% c("f", "m"), ]
+n_excluded <- nrow(birds) - nrow(birds_filtered)
+
+```
+
+```{r}
+#| label: fig-residuals
+#| fig-cap: "Distribution of residuals from the separate regression models for males and females."
+#| fig-height: 3
+
+# Define colors for each sex
+sex_cols <- c(f = "#D55E00", m = "#0072B2")
+
+# Plot sex-specific residual distributions as histogram subplots
+par(mfrow = c(1, 2), cex.axis = 0.8)
+hist(residuals(mf), main = "Females", xlab = "Residual", col= sex_cols["f"],
+     border="white", las=1)
+hist(residuals(mm), main = "Males",   xlab = "Residual", col=sex_cols["m"],
+     border="white", las=1)
+
+```
+
+```{r}
+#| label: extract-stats
+#| include: false
+
+# One helper function, applied to each model for summarizing stats
+summarise_fit <- function(model, sex) {
+  s  <- summary(model)
+  ci <- confint(model)["log(body_mass)", ]
+  data.frame(
+    Sex   = sex,
+    n     = nobs(model),
+    Slope = coef(model)[["log(body_mass)"]],
+    SE    = s$coefficients["log(body_mass)", "Std. Error"],
+    CI    = sprintf("%.2f–%.2f", ci[1], ci[2]),
+    R2    = s$r.squared
+  )
+}
+
+# Combine per-sex summaries into one table (one row per sex)
+by_sex <- rbind(summarise_fit(mf, "Females"),
+                summarise_fit(mm, "Males"))
+# Name rows by sex
+rownames(by_sex) <- by_sex$Sex
+
+```
+
+# Results
+
+Overall, brain size scaled allometrically with body size (@tbl-by-sex, @fig-allometry). In males, brain size increased by `r round(by_sex["Males", "Slope"] * 10, 1)`% per 10% increase in body mass (allometric slope = `r round(by_sex["Males", "Slope"], 2)` $\pm$ `r round(by_sex["Males", "SE"], 2)`) and body mass explained `r round(by_sex["Males", "R2"] * 100, 1)`% of the variance in brain mass. The allometric slope was slightly steeper in females, with brain size increasing by `r round(by_sex["Females", "Slope"] * 10, 1)`% per 10% increase in body mass (allometric slope = `r round(by_sex["Females", "Slope"], 2)` $\pm$ `r round(by_sex["Females", "SE"], 2)`). In females, body mass explained `r round(by_sex["Females", "R2"] * 100, 1)`% of brain mass variance. 
+
+```{r}
+#| label: fig-allometry
+#| fig-cap: "Scaling relationship between brain and body size for 615 males and 483 females in different bird species. Both axes are on a logarithmic scale."
+
+# Scatterplot for plotting brain mass x body mass for all 
+# male and female individuals
+ggplot(birds_filtered, aes(x = body_mass, y = brain_mass, colour=Sex))+ 
+  geom_point(alpha = 0.5, size = 1.5) +
+  geom_smooth(method="lm", se=FALSE) +
+  scale_x_log10(labels = scales::label_comma()) +
+  scale_y_log10(labels = scales::label_comma())+
+  scale_colour_manual(values = c(f = "#D55E00", m = "#0072B2"),
+                      labels = c(f = "Females", m = "Males")) +
+  labs(x = "Body mass (log g)", y = "Brain mass (log g)", colour = NULL) +
+  theme_classic()
+
+```
+
+```{r}
+#| label: tbl-by-sex
+#| tbl-cap: "Summary of the allometric regressions of log brain mass (g) on log body mass (g), fitted separately for females and males. *n*, number of individuals; *b*, allometric slope; SE, standard error of the slope; R², percentage of variance in log brain mass explained by log body mass."
+
+# Format the numeric summaries for display only
+intercepts <- c(coef(mf)[["(Intercept)"]], coef(mm)[["(Intercept)"]])
+
+tbl_display <- data.frame(
+  Sex       = by_sex$Sex,
+  n         = by_sex$n,
+  Intercept = sprintf("%.2f", intercepts),
+  Slope     = sprintf("%.3f ± %.3f", by_sex$Slope, by_sex$SE),
+  R2        = sprintf("%.1f", by_sex$R2 * 100)
+)
+
+knitr::kable(
+  tbl_display,
+  row.names = FALSE,
+  col.names = c("Sex", "n", "Intercept", "Slope (b) ± SE", "R² (%)"),
+  align     = "lrrrr"
+)
+
+```
+
+
+# Discussion and Conclusions
+
+Although there is a slight difference between the allometric slope of the two sexes, both males and females share a common brain-body scaling tendency across different species, indicating a negative allometric relationship (`r round(by_sex["Males", "Slope"], 2)` for males and `r round(by_sex["Females", "Slope"], 2)` for females), where brain mass increases less than proportionally with body mass, with the effect appearing weaker in females. This divergence might reflect sex-specific selection on brain size, although further analyses are needed in order to determine statistical significance of the observed difference in allometric slope as well as infer any underlying causal relationships. 
+
+
+# Appendix
+The R code used for all analyses and figures in this report is provided below and is also available at .
+```{r ref.label=knitr::all_labels()}
+#| echo: true
+#| eval: false
+```
