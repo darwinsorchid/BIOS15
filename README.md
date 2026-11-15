@@ -1,4 +1,4 @@
-# BIOS15 – Statistics and Modelling in Biology
+# BIOS15 – Processing and Analysis of Biological Data
 
 Course projects and reports for BIOS15, written in R and Quarto.
 
